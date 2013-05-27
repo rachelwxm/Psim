@@ -99,7 +99,8 @@ sub SequencingError
 			if($ErrorTypePro<$SingleBaseError)
 			{
 				my $ori=substr($SeparateParts[$j],0,1);
-				substr($SeparateParts[$j],0,1)=$Error{substr($SeparateParts[$j],0,1)}{int(rand(4))};
+#print "TEST Sequencing Error\tori $ori\n";
+				substr($SeparateParts[$j],0,1)=$Error{$ori}{int(rand(3))};
 				$ErrorSiteInfo{$j}.="\terror\t$ori\t".substr($SeparateParts[$j],0,1);
 			}
 			elsif($ErrorTypePro>$SingleBaseError && $ErrorTypePro<($Insert+$SingleBaseError))

@@ -29,12 +29,16 @@ our $VERSION=1.0;
 
 sub PieceGenerate
 {
+	#	print "TEST: CALLED PIECEGENERATE\n";
 	my ($WL,$type,$circle,$Coverage,$Lamada,$sd,$limit)=@_;
 	my @StartLeng;
 	my $lengthlimit=$WL*$Coverage;
 	my $num=int(($WL*$Coverage/$Lamada)+0.5);
 	my @length=&normal($num,$Lamada,$sd,$limit);
-	$WL+=$Lamada if($circle==1);
+	if($circle==0)
+	{
+		$WL=$WL-int($Lamada*1.5);
+	}
 	if($type==0) #other library types
 	{
 		foreach my $l(@length)
@@ -63,7 +67,7 @@ sub PieceGenerate
 			elsif($StartPoint<=$InsertEnd)
 			{
 				#return 0,fragment start site, insert end site, insert start site and fragment size
-				push @StartLeng,"0\_$StartPoint\_$InsertEnd\_$length[$i]\_$InsertSite";
+				push @StartLeng,"0\_$StartPoint\_$InsertEnd\_$InsertSite\_$length[$i]";
 			}
 			else
 			{

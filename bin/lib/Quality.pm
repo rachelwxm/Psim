@@ -27,13 +27,37 @@ FASTQ quality format:
   L - Illumina 1.8+ Phred+33,  raw reads typically (0, 41)
 
 *above fastq information from wikipedia http://en.wikipedia.org/wiki/FASTQ_format
-parameter:
-	sequencing technology(Illumina, Roche or SOLiD)
-	\$quality
-	length
+
+IN Psim, TWO TYPES OF QUALITY ARE employed: START WITH \"!\" AND START WITH \"\@\".
+
+Quality score:
+Illumina:	quality of reads
+				first tenth--normal(int($b/10+0.5),$QualityExp-3,$QualityVar*10,$QualityExp."-",0);
+				last nine tenth--normal($b-int($b/10+0.5),$QualityExp,$QualityVar,"40-",0);
+			quality of site
+				first ten sites--Q=0.8*x+Qmean-5
+				other sites--Q=-a*x^2+Qmean+3.5
+				a=(3.5*n-41)/(n*(n+1)*(2*n+1)/6-385)
+454:		quality of reads
+				first tenth--normal(int($b/10+0.5),$QualityExp-3,$QualityVar*10,$QualityExp."-",0);
+				others--normal($b-int($b/10+0.5),$QualityExp,$QualityVar,"40-",0);
+			quality of site
+				Q=-ax^2+Qmean+3.5
+				a=21/(n+1)/(2*n+1)
+SOLiD:		quality of reads
+				first tenth--normal(int($b/10+0.5),$QualityExp-3,$QualityVar*10,$QualityExp."-",0);
+				others--normal($b-int($b/10+0.5),$QualityExp,$QualityVar,"40-",0);
+			quality of site
+				Q=-ax^2+Qmean+3.5
+				a=21/(n+1)/(2*n+1)
 
 example:
-	&Quality($Command,\$quality,$readleng,\@qual_th);
+for illumina(fixed read length):
+	&Quality($Command,\@quality,$readleng,$Qmean,$Qsd,$readsnum,$Qtype);
+for solid(fixed read length):
+	&Quality($Command,\@quality,$readleng,$Qmean,$Qsd,$readsnum);
+for 454(variable read length):
+	&Quality($Command,\@quality,\@readlength,$Qmean,$Qsd);
 
 =cut
 
@@ -41,78 +65,97 @@ package Quality;
 require Exporter;
 use warnings;
 use strict;
+use normal;
 
 our @ISA=qw(Exporter);
 our @EXPORT=qw(Quality);
 our @VERSION=1.0;
 
-my @conv_table;
-for (-64..64)
-{
-	$conv_table[$_+64] = chr(int(33 + 10*log(1+10**($_/10.0))/log(10)+.499));
-}
-
 sub Quality
 {
-	my ($Type,$quality,$length,$qual_th)=@_;
-	#convert Dec code to ASCII code for random quality value (solexa or std/standard quality)
-	if($Type =~ /solid/i)
+	my ($Type,$quality,$length,$Qmean,$Qsd,$readnum,$Qtype)=@_;
+	if($Type=~/roche/)
 	{
-		my $q1=int(rand(40-$$qual_th[1])+$$qual_th[1]+1);
-		my $q2=int(rand(40-$$qual_th[2])+$$qual_th[2]+1);
-		if ($length>$$qual_th[0])
+		$readnum=scalar(@$length);
+	}
+	my (@Qfront,@Qbehind,@Qall);
+	my $tenth=int($readnum/10+0.5);
+#		print "TESTQUALITY $tenth,$Qmean,$Qsd,1\n";
+	@Qfront=normal($tenth,$Qmean-3,$Qsd*10,$Qmean."-","1");
+
+	@Qbehind=normal(($readnum-$tenth),$Qmean,$Qsd,"40-","1");
+	push @Qall,@Qfront;
+	push @Qall,@Qbehind;
+
+	if($Type=~/illumina/i)
+	{
+		my $a=aillumina($length);
+		my $qtype;
+		if($Qtype=~/!/)
 		{
-			for (my $i=0;$i<$length-$$qual_th[0];$i++)
+			$qtype=33;
+		}
+		else
+		{
+			$qtype=64;
+		}
+		foreach my $Q(@Qall)
+		{
+			my $qreads="";
+			for my $i(1..10)
 			{
-				my $q_tmp = int(rand($$qual_th[3])+1+$q1);
-				$q_tmp = 40 if ($q_tmp>40);
-				$$quality .= sprintf("%02d ",$q_tmp);
+				my $q=int(0.8*$i+$Q-5+$qtype);
+				$qreads.=chr($q);
 			}
-			for (my $i=$length-$$qual_th[0];$i<$length;$i++)
+			for my $j(11..$length)
 			{
-				my $q_tmp = int(rand($$qual_th[3])+1+$q2);
-				$q_tmp = 40 if ($q_tmp>40);
-				$$quality .= sprintf("%02d ",$q_tmp);
+				my $q=int(-$a*$j*$j+$Q+3.5+$qtype);
+				$qreads.=chr($q);
 			}
+			push @$quality,$qreads;
+		}
+	}	
+	elsif($Type=~/solid/i)
+	{
+		my $a=asolid454($length);
+		foreach my $Q(@Qall)
+		{
+			my $qreads="";
+			for my $i(1..$length)
+			{
+				my $q=int(-$a*$i*$i+$Q+3.5);
+				$qreads.="$q ";
+			}
+			push @$quality,$qreads;
 		}
 	}
 	else
 	{
-		if ($length>$$qual_th[0])
+		for my $k(0..$#$length)
 		{
-			my $q1=int(rand(40-$$qual_th[1])+$$qual_th[1]+1);
-			my $q2=int(rand(40-$$qual_th[2])+$$qual_th[2]+1);
-			for (my $i=0;$i<$length-$$qual_th[0];$i++)
+			my $qreads="";
+			my $a=asolid454($$length[$k]);
+			for my $i(1..$$length[$k])
 			{
-				if ($Type =~ /roche/i)
-				{
-					my $q_tmp = int(rand($$qual_th[3])+$q1);
-					$q_tmp = 40 if ($q_tmp>40);
-					$$quality .= $conv_table[$q_tmp+64]; #std quality
-				}
-				elsif ($Type =~ /illumina/i)
-				{
-					my $q_tmp = int(rand($$qual_th[3])+$q1);
-					$q_tmp = 40 if ($q_tmp>40);
-					$$quality .= chr($q_tmp+64); #solexa quality
-				}
+				my $q=int(-$a*$i*$i+$Qall[$k]+3.5);
+				$qreads.="$q ";
 			}
-			for (my $i=$length-$$qual_th[0];$i<$length;$i++)
-			{
-				if ($Type =~ /roche/i)
-				{
-					my $q_tmp = int(rand($$qual_th[3])+$q2);
-					$q_tmp = 40 if ($q_tmp>40);
-					$$quality .= $conv_table[$q_tmp+64]; #std quality
-				}
-				elsif ($Type =~ /illumina/i)
-				{
-					my $q_tmp = int(rand($$qual_th[3])+$q2);
-					$q_tmp = 40 if ($q_tmp>40);
-					$$quality .= chr($q_tmp+64); #solexa quality
-				}
-			}
+			push @$quality,$qreads;
 		}
 	}
 }
 1;
+
+sub aillumina
+{
+#	(3.5*n-41)/(n*(n+1)*(2*n+1)/6-385)
+	my $readlength=shift;
+	my $a=(3.5*$readlength-41)/($readlength*($readlength+1)*(2*$readlength+1)/6-385);
+	return $a;
+}
+sub asolid454
+{
+	my $readlength=shift;
+	my $a=21/($readlength+1)/(2*$readlength+1);
+	return $a;
+}

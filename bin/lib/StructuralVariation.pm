@@ -118,7 +118,8 @@ sub StructuralVariation
 		my $LengthLimit=$WholeLength*$SVcoverage;
 		for my $i(1..int($LengthLimit/$SVaveleng+10))
 		{
-			my @length=&normal(1,$SVaveleng,1000,1000);
+#			my @length=&normal(1,$SVaveleng,1000,1000);
+			my @length=&normal(1,$SVaveleng,1000);
 			my $length=shift @length;
 			my $start=int(rand($WholeLength));
 			my $type=int(rand(4));

@@ -1,9 +1,10 @@
 #!/usr/bin/perl -w
 use strict;
+use Math::Random qw(random_poisson);
 use Getopt::Long;
 use Term::ANSIColor;
-use FindBin qw($Bin);
-use lib "$Bin/lib";
+use FindBin qw($Bin $Script);
+use lib "$FindBin::Bin/lib";
 use 5.010;
 use constant PI=>3.14159265;
 use Data::Dumper;
@@ -17,6 +18,7 @@ use StructuralVariation;
 use Base2Col;
 use Quality;
 use SequencingError;
+use ReadGff;
 
 #======================DEFAULT PARAMETERS========================
 my %Error;
@@ -74,7 +76,8 @@ foreach my $i(0..3)
 
 #==========================USER PARAMETERS==============================
 my ($Help,$Command,$Reference,$Circle,$SNP,$SV,$Coverage,$PE,$FragmentMean,$FragmentSD,$FragLim,$ReadLeng,$ReadSD,$LostSingle,$DoublePercent,$Mismatch,$Palo,$Adapter,$Output,$Dir,$Library,$Mutation);
-my ($Insert,$Linker,$Error,$adapter1,$adapter2,$Quality,$Header,$Example);
+my ($Insert,$Linker,$Error,$adapter1,$adapter2,$Qmean,$Qsd,$Header,$Example,$GFF,$CDNA,$CovcDNA,$Qtype);
+my $count=0;
 my $SNPReport="SNPReportByPsim.txt";
 my $SVReport="SVReportByPsim.txt";
 $Command=$ARGV[0];
@@ -104,9 +107,14 @@ GetOptions(
 	"dir:s"		=>\$Dir,
 	"output:s"	=>\$Output,
 	"error:s"	=>\$Error,
-	"quality:s"	=>\$Quality,
+	"qmean:s"	=>\$Qmean,
+	"qsd:s"		=>\$Qsd,
 	"header:s"	=>\$Header,
 	"example"	=>\$Example,
+	"gff:s"		=>\$GFF,
+	"cdna"		=>\$CDNA,
+	"covcdna:s"	=>\$CovcDNA,
+	"qtype:s"	=>\$Qtype,
 	);
 
 my $USAGE="
@@ -154,16 +162,22 @@ OPTIONS:
                           split two adapters by \"\:\")
     --error <NUM>         sequencing error rate and possiblities of single base error, insert and deletion
                           (default=\"0.0005:0.34:0.33:0.33\")
-    --quality <NUM>       set higher quality scores theshold of 5' end bases:(3\' reads split position:
-                          5\'end quality_theshold:3\'end quality theshold:quality variance,default:5:30:20:2)
+    --qtype <CHAR>        quality type(\!=Sanger format, \@=illumina 1.3~1.8- format, default=\!)
+    --qmean <NUM>         peak value of quality score(default=37)
+    --qsd <NUM>           standard deciation of quality score(default=1)
 
   **palogenome sequencing parameters**
-    --palo                the sequencing sample have mismatch end
+    --palo                the sequencing sample have mismatch and injured end
     --mismatch <INT>      mismatch length range of double strain(default=\"3\_20\")
     --library <INT>       library preparation type(1=single strain,2=double strain,default=1)
     --mutation <NUM>      mutation rate of methylation and deamination at mismatch end(default=0.01)
     --ds <NUM>            percent of two strain both be sequenced while library=2(default=0.9)
     --lost <NUM>          lost rate single strain while library=1(default=0.5)
+
+  **RNA-SEQ sequencing parameters**
+    --cdna                RNA-SEQ sequencing
+    --gff <FILE>          input gene gff file
+    --covcdna <INT>       mean coverage of cDNA sequences(default=10 if --cdna)
 
   **output parameters**
     --dir <CHAR>          output directory(default=\".\/\")
@@ -191,8 +205,8 @@ OPTIONS:
                           \"800-\" means must shorter than 800nt,if(-palo) this para default=20+)
     --error <NUM>         sequencing error rate and possiblities of single base error, insert and deletion
                           (default=\"0.0005:0.34:0.33:0.33\")
-    --quality <NUM>       set higher quality scores theshold of 5' end bases:(3\' reads split position:
-                          5\'end quality_theshold:3\'end quality theshold:quality variance,default:5:30:20:2)
+    --qmean <NUM>         peak value of quality score(default=37)
+    --qsd <NUM>           standard deciation of quality score(default=1)
 
   **palogenome sequencing parameters**
     --palo                the sequencing sample have mismatch end
@@ -201,6 +215,11 @@ OPTIONS:
     --mutation <NUM>      mutation rate of methylation and deamination at mismatch end(default=0.01)
     --ds <NUM>            percent of two strain both be sequenced while library=2(default=0.9)
     --lost <NUM>          lost rate single strain while library=1(default=0.5)
+
+  **RNA-SEQ sequencing parameters**
+    --cdna                RNA-SEQ sequencing
+    --gff <FILE>          input gene gff file
+    --covcdna <INT>       mean coverage of cDNA sequences(default=10 if --cdna)
 
   **output parameters**
     --dir <CHAR>          output directory(default=\".\/\")
@@ -227,8 +246,8 @@ OPTIONS:
     --read <INT>          average length of reads(default=50)
     --error <NUM>         sequencing error rate and possiblities of single base error, insert and deletion
                           (default=\"0.0005:0.34:0.33:0.33\")
-    --quality <NUM>       set higher quality scores theshold of 5' end bases:(3\' reads split position:
-                          5\'end quality_theshold:3\'end quality theshold:quality variance,default:5:30:20:2)
+    --qmean <NUM>         peak value of quality score(default=37)
+    --qsd <NUM>           standard deciation of quality score(default=1)
     --header <CHAR>       sequencing header base(default=G)
 
   **palogenome sequencing parameters**
@@ -238,6 +257,11 @@ OPTIONS:
     --mutation <NUM>      mutation rate of methylation and deamination at mismatch end(default=0.01)
     --ds <NUM>            percent of two strain both be sequenced while library=2(default=0.9)
     --lost <NUM>          lost rate single strain while library=1(default=0.5)
+
+  **RNA-SEQ sequencing parameters**
+    --cdna                RNA-SEQ sequencing
+    --gff <FILE>          input gene gff file
+    --covcdna <INT>       mean coverage of cDNA sequences(default=10 if --cdna)
 
   **output parameters**
     --dir <CHAR>          output directory(default=\".\/\")
@@ -261,7 +285,7 @@ perl Psim.pl illumina --snp 0.03 --sv 0.3 --cov 0.01 --pe --fragmean 35 --fragsd
 ======================================EXAMPLE END============================================\n
 ";
 #============================CHECK PARAMETER===============================
-die color ("bold magenta"),$USAGE,color("reset") if(!$Command || $Help);
+die color ("bold magenta"),$USAGE,color("reset"),"\n" if(!$Command || $Help);
 die $ExampleInfo if($Example || $Command=~/example/i);
 $SNP=0.001 if(!defined $SNP);
 $SV="0.1:3000" if(!defined $SV);
@@ -269,18 +293,16 @@ $Coverage||=3;
 if(defined $Circle){$Circle=1;}
 else{$Circle=0}
 $Error="0.0005:0.34:0.33:0.33" if(!defined $Error);
+die "Wrong error parameter \n" if(($Error=~tr/:/:/)!=3);
 die "Wrong SNP parameter \n$USAGE" if((!($SNP=~/\d+\.?\d*/) && !(-e $SNP)) || ($SNP=~/\d+\.?\d*/ && $SNP>1));
 die "Wrong SV parameter \n$USAGE" if( !(-e $SV) && (!$SV=~/\d*\.?\d+\:\d+/));
-$Quality||="5:30:20:2";
-my @qual_th=split/[\-\;\,\.\_\:]/,$Quality;
-$qual_th[0] = 5 unless ((defined $qual_th[0])&&($qual_th[0]>=0));
-$qual_th[1] = 30 unless ((defined $qual_th[1])&&($qual_th[1]>=0));
-$qual_th[2] = 20 unless ((defined $qual_th[2])&&($qual_th[2]>=0));
-$qual_th[3] = 2 unless ((defined $qual_th[3])&&($qual_th[3]>=0));
+$Qtype||="!";
+$Qmean||=37;
+$Qsd||=1;
 my ($l1,$l2);
 if($Command=~/illumina/i)
 {
-	die color ("cyan"),$illumina,color("reset") if(!$Reference || $Help);
+	die color ("cyan"),$illumina,color("reset"),"\n" if(!$Reference || $Help);
 	die "Cannot open reference sequence file\n" if(!(-e $Reference));
 	$FragmentMean||=200;
 	$FragmentSD||=10;
@@ -294,7 +316,7 @@ if($Command=~/illumina/i)
 }
 elsif($Command=~/roche/i)
 {
-	die color ("blue"),$roche,color("reset") if(!$Reference || $Help);
+	die color ("blue"),$roche,color("reset"),"\n" if(!$Reference || $Help);
 	die "Cannot open reference sequence file\n" if(!(-e $Reference));
 	$Insert||="8000:30" if($PE);
 	$FragmentMean||=450;
@@ -304,7 +326,7 @@ elsif($Command=~/roche/i)
 }
 elsif($Command=~/solid/i)
 {
-	die color ("green"),$solid,color("reset") if(!$Reference || $Help);
+	die color ("green"),$solid,color("reset"),"\n" if(!$Reference || $Help);
 	die "Cannot open reference sequence file\n" if(!(-e $Reference));
 	$FragmentMean||=100;
 	$FragmentSD||=10;
@@ -329,6 +351,19 @@ my $flowcell=1;
 my $titlenumber=1;
 my $n=0;
 
+my (%DigestRegion,@rna_poisson);
+my @cDNAFragment=qw();
+#my ($gene_num,$mRNA_num)=(0,0);
+if($CDNA)
+{
+	$CovcDNA||=10;
+	&ReadGff($GFF,\%DigestRegion);
+	my $NumcDNA=$CovcDNA*scalar(keys %DigestRegion);
+	die "NO TRANSCRIPT INFORMATION IN $GFF!\n" if($NumcDNA==0);
+	@rna_poisson=random_poisson($NumcDNA,$CovcDNA);
+	$Circle=0;
+}
+
 my $info="Simulation Sequencing Parameters
 ===========================================================
 reference data $Reference\n";
@@ -352,10 +387,10 @@ $info.="fragment length limit is $FragLim\n" if(defined $FragLim);
 $info.="read length is $ReadLeng\n" if($Command=~/illumina/i || $Command=~/solid/i);
 if($Error=~/\:/){$info.="error rate and possible of each error type is $Error\n"}
 else{$info.="error file is $Error\n";}
-$info.="quality scores--3' reads split position:5'end quality_theshold:3'end quality theshold:quality variance is $Quality\n\n";
 if($Palo){$info.="simulation palogenome\nmismatch range is $Mismatch\n$Library stain library preparation method\nmutation rate is $Mutation\n"}
 if($DoublePercent){$info.="double strain both kept rate is $DoublePercent\n"}
 elsif($LostSingle){$info.="single strain lost rate is $LostSingle\n\n";}
+if($CDNA){$info.="RNA-seq\ninput gff file is $GFF\nmean coverage is $CovcDNA\n\n";}
 $info.="output directory is $Dir\noutput sequencing fiel prefix is $Output
 ============================================================\n";
 print color("yellow"),$info,color("reset") if($Reference && $Command && !$Help);
@@ -364,8 +399,8 @@ print color("yellow"),$info,color("reset") if($Reference && $Command && !$Help);
 
 #============================HANDLE INFORMATION================================
 
-open OUT1,">$Dir$Output.fasta" if(!$Command=~/illumina/i);
-open OUT2,">$Dir$Output.qual" if(!$Command=~/illumina/i);
+open OUT1,">$Dir$Output.fasta" if(!($Command=~/illumina/i));
+open OUT2,">$Dir$Output.qual" if(!($Command=~/illumina/i));
 open OUT1,">$Dir$Output.fastq" if($Command=~/illumina/i && !$PE);
 open OUT1,">$Dir$Output\-1.fastq" if($Command=~/illumina/i && $PE);
 open OUT2,">$Dir$Output\-2.fastq" if($Command=~/illumina/i && $PE);
@@ -374,7 +409,7 @@ open NAME,">$Dir"."NameRecordByPsim.txt";
 my (@SV,@SNP,@MUTATION,@NAME,@ERROR);
 
 #==============================MAIN PROGRAM===============================
-
+my @Qualitys;
 my $Sequence="";
 my $SeqName="";
 open REFERENCE,"<$Reference";
@@ -401,34 +436,97 @@ $Sequence="";
 #=============================MAIN SUBROUTINE===============================
 sub Main
 {
-#STEP ONE:	SNP
-	if($SNP ne 0)
+#RNA-seq sequencing
+	if($CDNA)
 	{
-		my $snptype=0;
-		$snptype=1 if(!($SNP=~/\d\.?\d*/));
-		&SNP(\$Sequence,$snptype,$SeqName,$SNP,\@SNP);
+		my $n=0;
+		my @name=split /\s+/,$SeqName;
+		$name[0]=~s/^>//;
+		my $CHR=$name[0];
+		if(exists $DigestRegion{$CHR})
+		{
+			foreach my $ID(keys %{$DigestRegion{$CHR}})
+			{
+				my $transcript="";
+				my @a=split /\:/,$DigestRegion{$CHR}{$ID};
+				my $Strand=$a[0];
+				my @se=split /\;/,$a[1];
+				if($Strand eq "+")
+				{
+					foreach(@se)
+					{
+						my ($start,$end)=split /\,/;
+						$transcript.=substr($Sequence,$start,($end-$start+1));
+					}
+				}
+				elsif($Strand eq "-")
+				{
+					foreach(@se)
+					{
+						my ($start,$end)=split /\,/;
+						$transcript=substr($Sequence,$start,($end-$start+1)).$transcript;
+						$transcript=&ReverseComplement($transcript);
+					}
+				}
+				&Library(\$transcript,$rna_poisson[$n]);
+				$n++;
+			}
+		}
+		else
+		{
+			die "Wrong Reference Name format\ndo not exists annotation information in gff file\n";
+		}
 	}
+	else
+	{
+#STEP ONE:	SNP
+		if($SNP ne 0)
+		{
+			my $snptype=0;
+			$snptype=1 if(!($SNP=~/\d\.?\d*/));
+			&SNP(\$Sequence,$snptype,$SeqName,$SNP,\@SNP);
+		}
 
 #STEP TWO:	SV
-	if($SV ne 0)
-	{
-		my $SVType=1;
-		$SVType=0 if($SV=~/\d*\.?\d+\:\d+/);
-		&StructuralVariation(\$Sequence,$SeqName,$SVType,$SV,\@SV)
-	}
+		if($SV ne 0)
+		{
+			my $SVType=1;
+			$SVType=0 if($SV=~/\d*\.?\d+\:\d+/);
+			&StructuralVariation(\$Sequence,$SeqName,$SVType,$SV,\@SV)
+		}
 
 #STEP THREE:	GENERATE LIBRARY FRAGMENT AND SEQUENCING
 #====GENERATE LIBRARY
+		&Library(\$Sequence,$Coverage);
+	}
+}
+sub Library
+{
+	my ($Sequence,$Coverage)=@_;
+    my $ltype=0;
 	my @Fragment;
-	my $ltype=0;
 	$ltype=$Insert.":".length($Linker) if($Command=~/roche/i && $PE);
-	my @StartLeng=&PieceGenerate(length($Sequence),$ltype,$Circle,$Coverage,$FragmentMean,$FragmentSD,$FragLim);
+	$$Sequence.=substr($$Sequence,0,int($FragmentMean*2));
+	my @StartLeng=&PieceGenerate(length($$Sequence),$ltype,$Circle,$Coverage,$FragmentMean,$FragmentSD,$FragLim);
+#====QUALITY
+	if($Command=~/illumina/ || $Command=~/solid/)
+	{
+		my $ReadsNum=scalar(@StartLeng);
+		$ReadsNum=2*$ReadsNum if($PE);
+		&Quality($Command,\@Qualitys,$ReadLeng,$Qmean,$Qsd,$ReadsNum,$Qtype);
+	}
+	else
+	{
+		my @ReadsLeng;
+		map {my @temp=split /\_/;push @ReadsLeng,$temp[-1]} @StartLeng;
+		&Quality($Command,\@Qualitys,\@ReadsLeng,$Qmean,$Qsd);
+	}
 	if($Palo)
 	{
 		my $lost=$LostSingle;
 		$lost=$DoublePercent if($Library==2);
 		my @PaloName;
-		&MismatchDoubleStrain($Library,\$Sequence,\@StartLeng,$Mismatch,$SeqName,$lost,$Mutation,\@Fragment,\@PaloName,\@MUTATION);
+		&MismatchDoubleStrain($Library,$Sequence,\@StartLeng,$Mismatch,$SeqName,$lost,$Mutation,\@Fragment,\@PaloName,\@MUTATION);
 #====SEQUENCING
 		for my $i(0..$#Fragment)
 		{
@@ -447,69 +545,67 @@ sub Main
 			my $sequence;
 			if($Command=~/roche/i && $PE)
 			{
-				#push @StartLeng,"3\_$StartPoint\_$InsertEnd\_$length[$i]";
-				#push @StartLeng,"0\_$StartPoint\_$InsertEnd\_$length[$i]\_$InsertSite";
-				#push @StartLeng,"5\_$InsertSite\_$end\_$length[$i]";
+#push @StartLeng,"3\_$StartPoint\_$InsertEnd\_$length[$i]";
+#push @StartLeng,"0\_$StartPoint\_$InsertEnd\_$InsertSite\_$length[$i]";
+#push @StartLeng,"5\_$InsertSite\_$end\_$length[$i]";
 				my @temp_roche=split /\_/,$StartLeng[$i];
 				if($temp_roche[0]==3)
 				{
 					my $orileng=$temp_roche[3]-$temp_roche[2]+1;
 					my $linkeradd=$temp_roche[3]-$orileng;
-					$sequence=substr($Sequence,$temp_roche[1],$orileng).substr($Linker,0,$linkeradd);
+					$sequence=substr($$Sequence,$temp_roche[1],$orileng).substr($Linker,0,$linkeradd);
 					my $readinfo="$SeqName-3end $i start=$temp_roche[1] end=$temp_roche[2] length=$temp_roche[3]";
 #====SEQUENCING
-					&SequencingRoche($sequence,$readinfo,$titlenumber) if($Command=~/roche/i);
+					&SequencingRoche($sequence,$readinfo,\$titlenumber) if($Command=~/roche/i);
 				}
 				elsif($temp_roche[0]==0)
 				{
-					my $ori1=$temp_roche[3]-$temp_roche[2]+1;
-					my $ori2=$temp_roche[3]-length($Linker);
-					$sequence=substr($Sequence,$temp_roche[1],$ori1).$Linker.substr($Sequence,$temp_roche[4],$ori2);
-					my $readinfo="$SeqName-bothPE $i start=$temp_roche[4] end=$temp_roche[2] length=$temp_roche[3]";
+					my $ori1=$temp_roche[4]-$temp_roche[2]+1;
+					my $ori2=$temp_roche[4]-length($Linker);
+					$sequence=substr($$Sequence,$temp_roche[1],$ori1).$Linker.substr($$Sequence,$temp_roche[3],$ori2);
+					my $readinfo="$SeqName-bothPE $i start=$temp_roche[3] end=$temp_roche[2] length=$temp_roche[4]";
 #====SEQUENCING
-					&SequencingRoche($sequence,$readinfo,$titlenumber) if($Command=~/roche/i);
+					&SequencingRoche($sequence,$readinfo,\$titlenumber) if($Command=~/roche/i);
 				}
 				else
 				{
 					my $orileng=$temp_roche[2]-$temp_roche[1]+1;
 					my $linkeradd="-".($temp_roche[3]-$orileng);
-					$sequence=substr($Linker,$linkeradd).substr($Sequence,$temp_roche[1],$orileng);
+					$sequence=substr($Linker,$linkeradd).substr($$Sequence,$temp_roche[1],$orileng);
 					my $readinfo="$SeqName-5end $i start=$temp_roche[1] end=$temp_roche[2] length=$temp_roche[3]";
 #====SEQUENCING
-					&SequencingRoche($sequence,$readinfo,$titlenumber) if($Command=~/roche/i);
+					&SequencingRoche($sequence,$readinfo,\$titlenumber) if($Command=~/roche/i);
 				}
 			}
 #====SEQUENCING
 			else
 			{
 				my ($start,$length)=split /\_/,$StartLeng[$i];
-				$sequence=substr($Sequence,$start,$length);
+#			print "TEST\tstart=$start\tlength=$length\n";
+				$sequence=substr($$Sequence,$start,$length);
 				my $readinfo="$SeqName $i start=$start end=".($start+$length-1)." length=$length";
 				&SequencingIlluminaSE($sequence,$readinfo,\$flowcell,\$titlenumber,\$n) if($Command=~/illumina/i && !$PE);
 				&SequencingIlluminaPE($sequence,$readinfo,\$flowcell,\$titlenumber,\$n) if($Command=~/illumina/i && $PE);
-				&SequencingRoche($sequence,$readinfo,$titlenumber) if($Command=~/roche/i);
+				&SequencingRoche($sequence,$readinfo,\$titlenumber) if($Command=~/roche/i);
 				&SequencingSOLiDSE($sequence,$readinfo,\$flowcell,\$titlenumber,\$n) if($Command=~/solid/i && !$PE);
 				&SequencingSOLiDPE($sequence,$readinfo,\$flowcell,\$titlenumber,\$n) if($Command=~/solid/i && $PE);
 			}
 		}
 	}
 }
-
-
 sub SequencingIlluminaSE
 {
 	my ($seq,$readinfo,$f,$t,$n)=@_;
 	$seq.=$adapter2;
 	my $x=int(rand(20000))+1;
 	my $y=int(rand(21500))+1;
-	my $prefix="\@RachelWu\:$$f\:$$t\:$x\:$y\#0";
+	my $prefix="\@RachelWu\:1\:BENM\:$$f\:$$t\:$x\:$y 0\:N\:0\:ATCACG";
 	print NAME "$prefix\t$readinfo\n";
 	my $read=substr($seq,0,$ReadLeng);
 	$read=&SequencingError($read,$Error,$prefix,\@ERROR);
-	my $quality;
-	&Quality($Command,\$quality,$ReadLeng,\@qual_th);
 
-	print OUT1 "$prefix\n$read\n\+\n$quality\n";
+	print OUT1 "$prefix\n$read\n\+\n$Qualitys[$count]\n";
+
 	$$n+=1;
 	if($$n>400)
 	{
@@ -517,6 +613,7 @@ sub SequencingIlluminaSE
 		$$n=1;
 	}
 	$$f+=1 if($$t>120);
+	$count+=1;
 }
 
 sub SequencingIlluminaPE
@@ -533,18 +630,13 @@ sub SequencingIlluminaPE
 	my $pe1=substr($readseq1,0,$ReadLeng);
 	my $pe2=substr($readseq2,0,$ReadLeng);
 
-	$pe1=&SequencingError($pe1,$Error,$prefix."\/1",\@ERROR);
-	$pe2=&SequencingError($pe2,$Error,$prefix."\/2",\@ERROR);
+	$pe1=&SequencingError($pe1,$Error,$prefix." 1\:N\:0\:ATCACG",\@ERROR);
+	$pe2=&SequencingError($pe2,$Error,$prefix." 2\:N\:0\:ATCACG",\@ERROR);
 
-	my $Q1="";
-	my $Q2="";
-	&Quality($Command,\$Q1,$ReadLeng,\@qual_th);
-	&Quality($Command,\$Q2,$ReadLeng,\@qual_th);
-
-	print OUT1 "$prefix"."\/1\n$pe1\n";
-	print OUT1 "+\n"."$Q1\n";
-	print OUT2 "$prefix"."\/2\n$pe2\n";
-	print OUT2 "+\n"."$Q2\n";
+	print OUT1 "$prefix"." 1\:N\:0\:ATCACG\n$pe1\n";
+	print OUT1 "+\n"."$Qualitys[$count]\n";
+	print OUT2 "$prefix"." 2\:N\:0\:ATCACG\n$pe2\n";
+	print OUT2 "+\n"."$Qualitys[$count+1]\n";
 
 	$$n+=1;
 	if($$n>400)
@@ -553,19 +645,18 @@ sub SequencingIlluminaPE
 		$$n=1;
 	}
 	$$f+=1 if($$t>120);
+	$count+=2;
 }
 
 sub SequencingRoche
 {
 	my ($reads,$readinfo,$n)=@_;
-	my $prefix="\@Psim_Roche454\.$n";
-	print NAME "$prefix\t$readinfo";
+	my $prefix="\@Psim_Roche454\.$$n";
+	print NAME "$prefix\t$readinfo\n";
 
 	&SequencingError($reads,$Error,$prefix,\@ERROR);
-	my $quality;
-	&Quality($Command,\$quality,length($reads),\@qual_th);
 	print OUT1 "$prefix\n$reads\n";
-	print OUT2 "$prefix\n$quality\n";
+	print OUT2 "$prefix\n$Qualitys[$n-1]\n";
 	$$n+=1;
 }
 
@@ -576,50 +667,44 @@ sub SequencingSOLiDSE
 	print NAME "$prefix\t$readinfo\n";
 	my $read=substr($seq,0,$ReadLeng);
 	$read=&SequencingError($read,$Error,$prefix,\@ERROR);
-	my $quality;
-	&Quality($Command,\$quality,$ReadLeng,\@qual_th);
-	&Base2Col($read,$Header);
+	&Base2Col(\$read,$Header);
 	print OUT1 "$prefix\n$read\n";
-	print OUT2 "$prefix\n$quality\n";
+	print OUT2 "$prefix\n$Qualitys[$count]\n";
 	$$n+=1;
 	if($$n>400)
 	{
 		$$t+=1;
 		$$n=1;
 	}
+	$count+=1;
 }
 sub SequencingSOLiDPE
 {
 	my ($reads,$readinfo,$f,$t,$n)=@_;
-	my $readseq1=$reads.$adapter2;
-	my $readseq2=&ReverseComplement($reads);
-
 	my $prefix="\>RachelWu\_$$f\_$$t\_$$n";
 	print NAME "$prefix\t$readinfo\n";
+	my $readseq1=$reads;
+	my $readseq2=&ReverseComplement($reads);
 
 	my $pe1=substr($readseq1,0,$ReadLeng);
 	my $pe2=substr($readseq2,0,$ReadLeng);
 
 	$pe1=&SequencingError($pe1,$Error,$prefix."\_F3",\@ERROR);
 	$pe2=&SequencingError($pe2,$Error,$prefix."\_R3",\@ERROR);
-	&Base2Col($pe1,$Header);
-	&Base2Col($pe2,$Header);
-
-	my $Q1="";
-	my $Q2="";
-	&Quality($Command,\$Q1,$ReadLeng,\@qual_th);
-	&Quality($Command,\$Q2,$ReadLeng,\@qual_th);
+	&Base2Col(\$pe1,$Header);
+	&Base2Col(\$pe2,$Header);
 
 	print OUT1 "$prefix"."\_F3\n$pe1\n";
-	print OUT2 "$prefix"."\_F3\n$Q1\n";
+	print OUT2 "$prefix"."\_F3\n$Qualitys[$count]\n";
 	print OUT1 "$prefix"."\_R3\n$pe2\n";
-	print OUT2 "$prefix"."\_R3\n$Q2\n";
+	print OUT2 "$prefix"."\_R3\n$Qualitys[$count+1]\n";
 	$$n+=1;
 	if($$n>400)
 	{
 		$$t+=1;
 		$$n=1;
 	}
+	$count+=2;
 }
 
 if($SNP ne 0)
