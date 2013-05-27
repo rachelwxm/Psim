@@ -1,0 +1,5 @@
+deletion	1,25;400,88
+insertion	50,ATGCATGC;300,TTTTTTGGGGGGGGGCCCCA
+invertion	100,20
+tandem_repeat	150,100,4;320,30,2
+translocation	200,50,310
