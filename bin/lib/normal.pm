@@ -32,7 +32,7 @@ sub normal
 		my $lm=$limit;
         $lm=~s/\+//;
         $lm=~s/\-//;
-        if($type eq 1)
+        if(defined $type && $type eq 1)
 		{
 			for(my $i=0;$i<$size;$i++)
 			{
@@ -51,7 +51,7 @@ sub normal
 				$x=int($x+0.5);
 				
    #             print "TEST\tlm $lm\tlimit $limit\n";
-				if(($limit=~/\+/ && $x<$lm) || ($limit=~/\-/ && $x>$lm))
+				if(($limit=~/\+/ && $x<$lm) || ($limit=~/\-/ && $x>$lm) || $x<0)
 				{
 					$i--;
 					next;
@@ -83,7 +83,7 @@ sub normal
 					my $x=sqrt(-2*log($yita1)/log(2.718281828459045))*sin(2*3.1415926*$yita2);
 					$x=$mean+$sd*$x;
 					$x=int($x+0.5);
-					if($x<=$limit)
+					if($x<=$limit && $x>=0)
 					{
 						push @r,$x;
 						$l+=$x;
@@ -109,7 +109,7 @@ sub normal
 					my $x=sqrt(-2*log($yita1)/log(2.718281828459045))*sin(2*3.1415926*$yita2);
 					$x=$mean+$sd*$x;
 					$x=int($x+0.5);
-					if($x>=$limit)
+					if($x>=$limit && $x>=0)
 					{   
 						push @r,$x;
 						$l+=$x;

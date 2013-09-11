@@ -44,59 +44,61 @@ our $VERSION=1.0;
 
 sub StructuralVariation
 {
-#&StrcutVaretation(\$Sequence,$SeqName,$SVType,$SV,\@SV)
 	my ($seq,$prefix,$SVtype,$SV,$report)=@_;
 	my ($num_del,$num_inse,$num_inve,$num_rep,$num_tran,@del,@inse,@inve,@rep,@tran,%site);
+	my @tran_seq;
 #SV information from specific file
-	if($SVtype==1)
+	if($SVtype eq "1")
 	{
 		open SVFILE,"<$SV" || die "cannot open SV file $SV!\n";
 		while(<SVFILE>)
 		{
+#		print "IN SVFILE\n";
 			chomp;
-			my @s=split /s\+/;
-			if($s[1])
+			my @s=split /\s+/;
+			if($s[0] eq $prefix)
 			{
-				if($s[0]~~/del/i)
+				if($s[1]~~/del/i)
 				{
-					@del=split /\;/,$s[1];
+					@del=split /\;/,$s[2];
 					foreach(@del)
 					{
 						my @tmp1=split /,/;
 						$site{$tmp1[0]}="del_".$tmp1[1];
+#					print "TEST\tDEL\t$tmp1[0] $site{$tmp1[0]}\n";
 					}
 				}
-				elsif($s[0]~~/inser/i)
+				elsif($s[1]~~/inse/i)
 				{
-					@inse=split /\;/,$s[1];
+					@inse=split /\;/,$s[2];
 					foreach(@inse)
 					{
+#print "TEST insertion $_\n";
 						my @tmp2=split /,/;
 						$site{$tmp2[0]}="ins_".$tmp2[1];
 					}
 				}
-				elsif($s[0]~~/inver/i)
+				elsif($s[1]~~/inver/i)
 				{
-					@inve=split /\;/,$s[1];
+					@inve=split /\;/,$s[2];
 					foreach(@inve)
 					{
 						my @tmp3=split /,/;
 						$site{$tmp3[0]}="inv_".$tmp3[1];
 					}
 				}
-				elsif($s[0]~~/repeat/i)
+				elsif($s[1]~~/repeat/i)
 				{
-					@rep=split /\;/,$s[1]; 
+					@rep=split /\;/,$s[2]; 
 					foreach(@rep)
 					{
 						my @tmp4=split /,/;
 						$site{$tmp4[0]}="rep_".$tmp4[1]."_".$tmp4[2];
 					}
 				}
-				my @tran_seq;
-				if($num_tran~~/tran/i)
+				elsif($s[1]~~/tran/i)
 				{
-					@tran=split /\;/,$s[1];
+					@tran=split /\;/,$s[2];
 					foreach my $i(0..$#tran)
 					{
 						my @tmp5=split /,/, $tran[$i];
@@ -112,14 +114,14 @@ sub StructuralVariation
 	}
 	else
 	{
+#print "TEST Random SV\n";
 		my ($SVcoverage,$SVaveleng)=split /\:/,$SV;
 		my $SVleng=0;
 		my $WholeLength=length($$seq);
 		my $LengthLimit=$WholeLength*$SVcoverage;
 		for my $i(1..int($LengthLimit/$SVaveleng+10))
 		{
-#			my @length=&normal(1,$SVaveleng,1000,1000);
-			my @length=&normal(1,$SVaveleng,1000);
+			my @length=&normal(1,$SVaveleng,int($SVaveleng/3));
 			my $length=shift @length;
 			my $start=int(rand($WholeLength));
 			my $type=int(rand(4));
@@ -127,7 +129,6 @@ sub StructuralVariation
 			{
 				push @$report, "$prefix\tdeletion\t$start\t$length";
 				$site{$start}="del_".$length;
-
 			}
 			elsif($type==1)     #inversion
 			{
@@ -151,7 +152,6 @@ sub StructuralVariation
 			last if($SVleng>$LengthLimit)
 		}
 	}
-
 #handle SV
 	my $site_pre;
 	my %contig;

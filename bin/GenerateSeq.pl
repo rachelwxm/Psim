@@ -15,8 +15,9 @@ die"
 perl $0 [-n] [-l] [-pre] [-auto] > OUTFILE
   -n  NUM		number of sequence(default=1)
   -l  NUM or NUM,NUM...	length of each sequence, 
-			separate differenct length by \"\,\"
-  -pre			prefix of your sequence(s)
+			separate different length by \"\,\"
+  -pre	CHAR	prefix of your sequence(s)
+  -auto			randomly generate n sequences for Poisson distribution with average length of ¡°¨Cl¡± 
 \n" if(!$l);
 
 $n||=1;

@@ -29,18 +29,14 @@ our $VERSION=1.0;
 
 sub PieceGenerate
 {
-	#	print "TEST: CALLED PIECEGENERATE\n";
 	my ($WL,$type,$circle,$Coverage,$Lamada,$sd,$limit)=@_;
 	my @StartLeng;
 	my $lengthlimit=$WL*$Coverage;
 	my $num=int(($WL*$Coverage/$Lamada)+0.5);
 	my @length=&normal($num,$Lamada,$sd,$limit);
-	if($circle==0)
+	if($type eq 0) #other library types
 	{
-		$WL=$WL-int($Lamada*1.5);
-	}
-	if($type==0) #other library types
-	{
+		$WL=$WL-int($Lamada*1.5) if($circle eq 0);
 		foreach my $l(@length)
 		{
 			my $StartPoint=int(rand($WL));
@@ -51,6 +47,7 @@ sub PieceGenerate
 	{
 		my ($InsertMean,$InsertSD,$LinkerLeng)=split /\:/,$type;
 		my @insertleng=&normal($num,$InsertMean,$InsertSD);
+		$WL=$WL-int($InsertMean*1.5) if($circle eq 0);
 		for my $i(0..$#length)
 		{
 			#length[$i]=fragment length
@@ -72,7 +69,7 @@ sub PieceGenerate
 			else
 			{
 				#reutrn 5, insert start site, end site and whole fragment size. gap fill with linker sequence
-				my $end=$InsertSite+$length[$i]+$StartPoint-$LinkerLeng-$InsertEnd;
+				my $end=$InsertSite+$length[$i]+$StartPoint-$LinkerLeng-$InsertEnd-1;
 				push @StartLeng,"5\_$InsertSite\_$end\_$length[$i]";
 			}
 		}

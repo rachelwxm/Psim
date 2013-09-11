@@ -2,7 +2,7 @@
 =head1 Base2Col
 convert bases to color int reads
 
-usage: base2col(\$seq)
+usage: base2col(\$seq,$header)
 =cut
 
 package Base2Col;

@@ -66,68 +66,30 @@ our @VERSION=1.0;
 sub SequencingError
 {
 #	$read=&SequencingError($read,$Error,$prefix,\@ERROR);
-    my ($ReadSeq,$error,$prefix,$ErrorReport)=@_;
-	my ($ErrorRate,$SingleBaseError,$Insert,$Deletion)=split /\:/,$error;
-    my $ReadLength=length($ReadSeq);
-    my @ErrorSites=&NumOfErrorSite($ErrorRate,$ReadLength,rand(1));
-    my $NumOfError=scalar(@ErrorSites);
+	my ($ReadSeq,$error,$prefix,$ErrorReport)=@_;
+#	my ($ErrorRate,$SingleBaseError,$Insert,$Deletion)=split /\:/,$error;
+	my $ReadLength=length($ReadSeq);
+#  my @ErrorSites=&NumOfErrorSite($ErrorRate,$ReadLength,rand(1));
+	my @ErrorSites=&NumOfErrorSite($error,$ReadLength,rand(1));
+	my $NumOfError=scalar(@ErrorSites);
 	if($NumOfError==4 || $NumOfError==0)
 	{
 		return $ReadSeq;
 	}
 	else
 	{
-		my @SortSites=sort{$a<=>$b} @ErrorSites;
-		my %ErrorSiteInfo;
-		for my $k(0..$#SortSites)
+		foreach my $site(@ErrorSites)
 		{
-			$ErrorSiteInfo{$k+1}=$SortSites[$k];
-		}
-		my @SeparateParts;
-		push @SeparateParts,substr($ReadSeq,0,$SortSites[0]);
-		if(scalar(@SortSites)>1)
-		{
-			for(my $i=1;$i<=$#SortSites;$i++)
-			{
-				push @SeparateParts,substr($ReadSeq,$SortSites[$i-1],($SortSites[$i]-$SortSites[$i-1]));
-			}
-		}
-		push @SeparateParts,substr($ReadSeq,$SortSites[-1]);
-		for(my $j=1;$j<=$#SeparateParts;$j++)
-		{
-			my $ErrorTypePro=rand(1);
-			if($ErrorTypePro<$SingleBaseError)
-			{
-				my $ori=substr($SeparateParts[$j],0,1);
-#print "TEST Sequencing Error\tori $ori\n";
-				substr($SeparateParts[$j],0,1)=$Error{$ori}{int(rand(3))};
-				$ErrorSiteInfo{$j}.="\terror\t$ori\t".substr($SeparateParts[$j],0,1);
-			}
-			elsif($ErrorTypePro>$SingleBaseError && $ErrorTypePro<($Insert+$SingleBaseError))
-			{
-				my $insert=$InsertSE{int(rand(4))};
-				$SeparateParts[$j]=$insert.$SeparateParts[$j];
-				$ErrorSiteInfo{$j}.="\tinsert\t\-\t".$insert;
-			}
-			else
-			{
-				my $ori=substr($SeparateParts[$j],0,1);
-				substr($SeparateParts[$j],0,1)="";
-				$ErrorSiteInfo{$j}.="\tdeletion\t$ori";
-			}
-		}
-		my $ErroredRead;
-		map{$ErroredRead.=$_} @SeparateParts;
-
-		foreach my $key (sort{$a<=>$b} (keys %ErrorSiteInfo))
-		{
-			my $info=$ErrorSiteInfo{$key};
-#			print ERROR "$prefix\t$info\t$key\t$#SeparateParts\t".($#SortSites+1)."\n";
+			my $ori=substr($ReadSeq,$site,1);
+			my $new=$Error{$ori}{int(rand(3))};
+			substr($ReadSeq,$site,1)=$new;
+			my $info="$site\t$ori\t$new";
 			push @$ErrorReport, "$prefix\t$info";
 		}
-		return $ErroredRead;
+		return $ReadSeq;
 	}
 }
+
 sub NumOfErrorSite
 {
 	my ($ErrorRate,$ReadLength,$Probability)=@_;
@@ -164,4 +126,3 @@ sub NumOfErrorSite
 		return $site1,$site2,$site3;
 	}
 }
-1;

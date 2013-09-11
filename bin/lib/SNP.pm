@@ -60,50 +60,50 @@ $Error{"c"}{"2"}="G";
 
 sub SNP
 {
-#	$n+=1;
 	my ($RefSeq,$SNPType,$prefix,$SNP,$report)=@_;
-#	print "TEST times: $n\n";
-#	map {print "$_\n"} @_;
 	if($SNPType eq "1")
 	{
 		open(SNPFILE,"<$SNP") || die "$!\nCannot open SNP information file $SNP\n";
 		while(<SNPFILE>)
 		{
 			chomp;
-			my ($SNPsite,$SNPbase,$SNPrate)=split /\s+/;
-			my $r=rand(1);
-			my $Ini=substr($$RefSeq,($SNPsite+1),1);
-			if ($SNPbase=~/,/)
+			my ($Reference,$SNPsite,$SNPbase,$SNPrate)=split /\s+/;
+			if($Reference eq $prefix)
 			{
-				my @SNPbase=split /,/,$SNPbase;
-				my @SNPrate=split /,/,$SNPrate;
-				my $SNPnum=scalar(@SNPbase);
-				die "Wrong format of SNP file\n" if($SNPnum!=scalar(@SNPrate));
-				if($r<=$SNPrate[0])
+				my $r=rand(1);
+				my $Ini=substr($$RefSeq,($SNPsite-1),1);
+				if ($SNPbase=~/,/)
 				{
-					substr($$RefSeq,($SNPsite+1),1)=$SNPbase[0];
-					push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[0]";
-				}
-				elsif($r>$SNPrate[0] || $r<=($SNPrate[0]+$SNPrate[1]))
-				{
-					substr($$RefSeq,($SNPsite+1),1)=$SNPbase[1];
-					push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[1]";
-				}
-				if(exists $SNPrate[2])
-				{
-					if($r>($SNPrate[0]+$SNPrate[1]) && $r<=($SNPrate[0]+$SNPrate[1]+$SNPrate[2]))
+					my @SNPbase=split /,/,$SNPbase;
+					my @SNPrate=split /,/,$SNPrate;
+					my $SNPnum=scalar(@SNPbase);
+					die "Wrong format of SNP file\n" if($SNPnum!=scalar(@SNPrate));
+					if($r<=$SNPrate[0])
 					{
-						substr($$RefSeq,($SNPsite+1),1)=$SNPbase[2];
-						push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[2]";
+						substr($$RefSeq,($SNPsite-1),1)=$SNPbase[0];
+						push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[0]";
+					}
+					elsif($r>$SNPrate[0] || $r<=($SNPrate[0]+$SNPrate[1]))
+					{
+						substr($$RefSeq,($SNPsite-1),1)=$SNPbase[1];
+						push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[1]";
+					}
+					if(exists $SNPrate[2])
+					{
+						if($r>($SNPrate[0]+$SNPrate[1]) && $r<=($SNPrate[0]+$SNPrate[1]+$SNPrate[2]))
+						{
+							substr($$RefSeq,($SNPsite-1),1)=$SNPbase[2];
+							push @$report,"$prefix\t$SNPsite\t$Ini\t$SNPbase[2]";
+						}
 					}
 				}
-			}
-			else
-			{
-				if($r<=$SNPrate)
+				else
 				{
-					substr($$RefSeq,($SNPsite+1),1)=$SNPbase;
-					push @$report, "$prefix\t$SNPsite\t$Ini\t$SNPbase";
+					if($r<=$SNPrate)
+					{
+						substr($$RefSeq,($SNPsite-1),1)=$SNPbase;
+						push @$report, "$prefix\t$SNPsite\t$Ini\t$SNPbase";
+					}
 				}
 			}
 		}

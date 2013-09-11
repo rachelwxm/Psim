@@ -104,12 +104,18 @@ sub Quality
 			my $qreads="";
 			for my $i(1..10)
 			{
-				my $q=int(0.8*$i+$Q-5+$qtype);
+				my $q=int(0.8*$i+$Q-5);
+				$q=40 if($q>40);
+				$q=0 if($q<0);
+				$q+=$qtype;
 				$qreads.=chr($q);
 			}
 			for my $j(11..$length)
 			{
-				my $q=int(-$a*$j*$j+$Q+3.5+$qtype);
+				my $q=int(-$a*$j*$j+$Q+3.5);
+				$q=40 if($q>40);
+				$q=0 if($q<0);
+				$q+=$qtype;
 				$qreads.=chr($q);
 			}
 			push @$quality,$qreads;
@@ -124,6 +130,8 @@ sub Quality
 			for my $i(1..$length)
 			{
 				my $q=int(-$a*$i*$i+$Q+3.5);
+				$q=40 if($q>40);
+				$q=0 if($q<0);
 				$qreads.="$q ";
 			}
 			push @$quality,$qreads;
@@ -138,6 +146,8 @@ sub Quality
 			for my $i(1..$$length[$k])
 			{
 				my $q=int(-$a*$i*$i+$Qall[$k]+3.5);
+				$q=40 if($q>40);
+				$q=0 if($q<0);
 				$qreads.="$q ";
 			}
 			push @$quality,$qreads;
