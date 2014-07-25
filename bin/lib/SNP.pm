@@ -91,32 +91,38 @@ sub SNP
 		open(SNPFILE,"<$hash{snp}") || die "$!\nCannot open SNP information file $hash{snp}\n";
 		while(<SNPFILE>)
 		{
+			#print "EN $_";
+			#print "round\t";
 			chomp;
 			my ($Reference,$SNPsite,$SNPbase,$SNPrate)=split /\s+/;
 			if($Reference eq $hash{seqname})
 			{
-				my $r=rand(1);
+				my $r=rand(1);##print $r,"\t";
 				my $Ini=substr(${$hash{seq}},($SNPsite-1),1);
 				if ($SNPbase=~/,/)
 				{
+					#print "multi\t";
 					my @SNPbase=split /,/,$SNPbase;
 					my @SNPrate=split /,/,$SNPrate;
 					my $SNPnum=scalar(@SNPbase);
 					die "Wrong format of SNP file\n" if($SNPnum!=scalar(@SNPrate));
 					if($r<=$SNPrate[0])
 					{
+						#print "yes one\t";
 						substr(${$hash{seq}},($SNPsite-1),1)=$SNPbase[0];
 						push @{$hash{snpinfo}},"$hash{seqname}\t$SNPsite\t$Ini\t$SNPbase[0]";
 					}
 					elsif($r>$SNPrate[0] || $r<=($SNPrate[0]+$SNPrate[1]))
 					{
+						#print "yes two\t";
 						substr(${$hash{seq}},($SNPsite-1),1)=$SNPbase[1];
 						push @{$hash{snpinfo}},"$hash{seqname}\t$SNPsite\t$Ini\t$SNPbase[1]";
 					}
-					if(exists $SNPrate[2])
+					elsif(exists $SNPrate[2])
 					{
 						if($r>($SNPrate[0]+$SNPrate[1]) && $r<=($SNPrate[0]+$SNPrate[1]+$SNPrate[2]))
 						{
+						#print "yes three\t";
 							substr(${$hash{seq}},($SNPsite-1),1)=$SNPbase[2];
 							push @{$hash{snpinfo}},"$hash{seqname}\t$SNPsite\t$Ini\t$SNPbase[2]";
 						}
@@ -124,12 +130,15 @@ sub SNP
 				}
 				else
 				{
+					#print "single\t";
 					if($r<=$SNPrate)
 					{
+						#print "yes\t";
 						substr(${$hash{seq}},($SNPsite-1),1)=$SNPbase;
 						push @{$hash{snpinfo}}, "$hash{seqname}\t$SNPsite\t$Ini\t$SNPbase";
 					}
 				}
+				#print "\n";
 			}
 		}
 		close SNPFILE;

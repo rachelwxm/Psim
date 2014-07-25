@@ -592,7 +592,9 @@ while(<REFERENCE>)
 	{
 		for($m=1;$m<=$ploidy;$m++)
 		{
+			$/="\n";
 			&Main($Sequence);
+			$/=">";
 		}
 	}
 }
@@ -611,6 +613,8 @@ sub Main
 		#if $SNP is a decimal==> set snp rate, otherwise snp information from file
 		$snptype=1 if(!($SNP=~/\d\.\d*/));
 		&SNP("seq",\$SEQUENCE,"snptype",$snptype,"seqname",$SeqName,"snp",$SNP,"snpinfo",\@SNP);
+		print scalar(@SNP),"\n";
+		map{print "$_\n"} @SNP;
 	}
 #RNA-seq sequencing
 	if($CDNA)

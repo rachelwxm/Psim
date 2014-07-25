@@ -1,4 +1,4 @@
 reference	1462	A,T	0.3,0.2
-reference	18209	C	0.4
+reference	1820	C	0.4
 reference	72	G	0.5
-reference	2840	A,T,G	0.2,0.2,0.3
+reference	40	A,T,G	0.2,0.2,0.3
