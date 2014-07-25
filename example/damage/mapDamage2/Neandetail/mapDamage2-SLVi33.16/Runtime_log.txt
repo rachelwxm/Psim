@@ -1,0 +1,4 @@
+2013-06-21 11:18:25,774	INFO	main: Started with the command: /home/bio/software/mapDamage/mapDamage --single-stranded -i SLVi33.16.hg19.bam -r /home/bio/database/hg19/hg19_all.fa -d ./mapDamage2-SLVi33.16
+2013-06-21 12:45:46,423	DEBUG	main: BAM read in 5242.720916 seconds
+2013-06-21 12:45:51,063	INFO	main: Successful run
+2013-06-21 12:45:51,063	DEBUG	main: Run completed in 5247.360656 seconds

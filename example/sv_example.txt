@@ -1,0 +1,5 @@
+reference	deletion	300,2600;900000,3300
+reference	insertion	16350,TTTTTTGGGGGGGGGCCCCA
+reference	invertion	37000,2600
+reference	tandem_repeat	26000,1200,4;132000,3000,2
+reference	translocation	43000,5000,60000

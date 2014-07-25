@@ -1,0 +1,4 @@
+2013-06-20 15:02:29,616	INFO	main: Started with the command: /home/bio/software/mapDamage/mapDamage -i pang133.merge.rmdup.sort.rmdup.realigned.baq.bam -r /home/bio/database/GRCh37/hs37d5.fa -d ./mapDamage2-133
+2013-06-20 15:05:56,833	DEBUG	main: BAM read in 209.141211 seconds
+2013-06-20 15:06:01,029	INFO	main: Successful run
+2013-06-20 15:06:01,029	DEBUG	main: Run completed in 213.337504 seconds

@@ -1,0 +1,4 @@
+2013-06-20 15:04:28,425	INFO	main: Started with the command: /home/bio/software/mapDamage/mapDamage --single-stranded -i pang105.realigned.baq.rmdup.remark.bam -r /home/bio/database/GRCh37/hs37d5.fa -d ./mapDamage2-105
+2013-06-20 15:05:40,879	DEBUG	main: BAM read in 74.306852 seconds
+2013-06-20 15:05:45,048	INFO	main: Successful run
+2013-06-20 15:05:45,048	DEBUG	main: Run completed in 78.476429 seconds
