@@ -504,10 +504,6 @@ if($CDNA)
 	@rna_poisson=random_poisson($NumTrans,$CovcDNA);
 	$Circle=0;
 }
-if(($SNP ne 0) || ($SV ne 0))
-{
-	open NEWSEQ,">$Dir"."NewReferenceSequence.fa";
-}
 
 my $info="Simulation Sequencing Parameters
 ===========================================================
@@ -613,8 +609,8 @@ sub Main
 		#if $SNP is a decimal==> set snp rate, otherwise snp information from file
 		$snptype=1 if(!($SNP=~/\d\.\d*/));
 		&SNP("seq",\$SEQUENCE,"snptype",$snptype,"seqname",$SeqName,"snp",$SNP,"snpinfo",\@SNP);
-		print scalar(@SNP),"\n";
-		map{print "$_\n"} @SNP;
+#	print scalar(@SNP),"\n";
+#		map{print "$_\n"} @SNP;
 	}
 #RNA-seq sequencing
 	if($CDNA)
@@ -672,8 +668,11 @@ sub Main
 	}
 	if($Command=~/variation/ || ((($SNP ne 0) || ($SV ne 0))  && $print))
 	{
+		open NEWSEQ,">$Dir"."NewReferenceSequence.fa";
 		print NEWSEQ ">$SeqName-$m\n";
 		print NEWSEQ $SEQUENCE."\n";
+		close NEWSEQ;
+
 	}
 	if($SNP ne 0)
 	{
@@ -1006,7 +1005,6 @@ sub SequencingSOLiDPE
 	}
 	$count+=2;
 }
-close NEWSEQ;
 close NAME;
 close OUT1;
 close OUT2 || print "Simulation Done\n";
